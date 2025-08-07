@@ -1,29 +1,39 @@
 const puppeteer = require('puppeteer');
+const { URL } = require('url');
 
 (async () => {
-    const browser = await puppeteer.launch({
-        headless: true,  // set to false if you want to see the browser
-        args: ['--no-sandbox']
-    });
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox']
+  });
 
-    const page = await browser.newPage();
+  const page = await browser.newPage();
 
-    // Replace this URL with the actual Google Books search URL for a book
-    const searchQuery = 'ABC Book	3 - 6 years	Dr. Seuss	Random House, NY';
-    const searchUrl = `https://www.google.com/search?sca_esv=2ac96987daa6f6a8&sxsrf=AE3TifMGCBGkTdzSDxVEc1iu5gtEoa1Upg:1754545994863&udm=2&fbs=AIIjpHxU7SXXniUZfeShr2fp4giZ1Y6MJ25_tmWITc7uy4KIeioyp3OhN11EY0n5qfq-zEMZldv_eRjZ2XLYc5GnVnMEIxC4WQfoNDH7FwchyAayyomVtyMIlwCjX48LT0TrXSPt4cTMBEUhFjb1npEwd-pp_aRD8Rutuf9gzrxQ1X-rVJ_s4WfJYQGlZ0dCz-NY6HC6esLApXMfMf9GTGGaIaQORmX6cA&q=${encodeURIComponent(searchQuery)}&sa=X&ved=2ahUKEwiahpCWgfiOAxU-UGwGHU-8BoQQtKgLegQIEhAB&biw=1920&bih=517&dpr=1`;
+  const bookQuery = 'ABC Book 3 - 6 years Dr. Seuss Random House NY';
+  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(bookQuery)}&tbm=isch`;
 
-    await page.goto(searchUrl, { waitUntil: 'networkidle2' });
+  await page.goto(searchUrl, { waitUntil: 'networkidle2' });
 
-    // Wait for the #search element
-    await page.waitForSelector('#search');
+  // Wait for image links to load
+  await page.waitForSelector('#search a[href*="/imgres?"]');
 
-    const imageUrl = await page.evaluate(() => {
-        const searchContainer = document.querySelector('#search');
-        const firstImg = searchContainer.querySelector('img');
-        return firstImg ? firstImg.src : null;
-    });
-   console.log('Search URL:', searchUrl);
-    console.log('First image URL:', imageUrl);
+  // Extract the first imgurl
+  const fullImageUrl = await page.evaluate(() => {
+    const anchor = document.querySelector('#search a[href*="/imgres?"]');
+    if (!anchor) return null;
 
-    await browser.close();
+    const href = anchor.getAttribute('href');
+    const params = new URLSearchParams(href.split('?')[1]);
+    const imgurl = params.get('imgurl');
+
+    if (!imgurl) return null;
+
+    // Clean: remove after common extensions
+    const match = imgurl.match(/(https?:\/\/.*?\.(jpg|jpeg|png|webp|gif))/i);
+    return match ? match[1] : imgurl;
+  });
+
+  console.log('Image URL:', fullImageUrl);
+
+  await browser.close();
 })();
