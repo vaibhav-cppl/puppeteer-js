@@ -1,10 +1,9 @@
 const puppeteer = require('puppeteer');
-const { URL } = require('url');
 
 (async () => {
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox']
+    args: ['--no-sandbox'],
   });
 
   const page = await browser.newPage();
@@ -14,26 +13,26 @@ const { URL } = require('url');
 
   await page.goto(searchUrl, { waitUntil: 'networkidle2' });
 
-  // Wait for image links to load
-  await page.waitForSelector('#search a[href*="/imgres?"]');
+  // Wait for image grid to appear
+  await page.waitForSelector('a[href*="imgurl="]');
 
-  // Extract the first imgurl
-  const fullImageUrl = await page.evaluate(() => {
-    const anchor = document.querySelector('#search a[href*="/imgres?"]');
-    if (!anchor) return null;
+  const imageUrl = await page.evaluate(() => {
+    const anchors = Array.from(document.querySelectorAll('a[href*="imgurl="]'));
+    for (const anchor of anchors) {
+      const href = anchor.getAttribute('href');
+      if (!href) continue;
 
-    const href = anchor.getAttribute('href');
-    const params = new URLSearchParams(href.split('?')[1]);
-    const imgurl = params.get('imgurl');
+      const params = new URLSearchParams(href.split('?')[1]);
+      const imgurl = params.get('imgurl');
 
-    if (!imgurl) return null;
-
-    // Clean: remove after common extensions
-    const match = imgurl.match(/(https?:\/\/.*?\.(jpg|jpeg|png|webp|gif))/i);
-    return match ? match[1] : imgurl;
+      if (imgurl && /\.(jpg|jpeg|png|webp|gif)/i.test(imgurl)) {
+        return imgurl.match(/(https?:\/\/.*?\.(jpg|jpeg|png|webp|gif))/i)?.[1];
+      }
+    }
+    return null;
   });
 
-  console.log('Image URL:', fullImageUrl);
+  console.log('Image URL:', imageUrl || 'No image found');
 
   await browser.close();
 })();
